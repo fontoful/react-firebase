@@ -1,35 +1,34 @@
 const functions = require("firebase-functions");
 const admin = require("firebase-admin");
 
+const express = require("express");
+const app = express();
+
 // Authenticate so it works locally
-const serviceAccount = require("../serviceAccount/serviceAuthenticator.json");
+const serviceAccount = require("./serviceAccount/serviceAuthenticator.json");
 
 admin.initializeApp({
     credential: admin.credential.cert(serviceAccount),
     databaseURL: "https://social-app-5ef20.firebaseio.com"
 });
 
-// Initialize the App
-// admin.initializeApp();
-
-// // Create and Deploy Your First Cloud Functions
-// // https://firebase.google.com/docs/functions/write-firebase-functions
-//
-exports.helloWorld = functions.https.onRequest((req, res) => {
-    res.send("Hello world!");
-});
-
-exports.getScreams = functions.https.onRequest((req, res) => {
+app.get("/screams", (req, res) => {
     admin
         .firestore()
         .collection("screams")
+        .orderBy("createdAt", "desc")
         .get()
         .then(data => {
             // init a var
             let screams = [];
 
             data.forEach(doc => {
-                screams.push(doc.data());
+                screams.push({
+                    screamId: doc.id,
+                    body: doc.data().body,
+                    userHandle: doc.data().userHandle,
+                    createdAt: doc.data().createdAt
+                });
             });
 
             // return it
@@ -38,11 +37,12 @@ exports.getScreams = functions.https.onRequest((req, res) => {
         .catch(err => console.error(err));
 });
 
-exports.createScream = functions.https.onRequest((req, res) => {
+// POST method
+app.post("/scream", (req, res) => {
     const newScream = {
         body: req.body.body,
         userHandle: req.body.userHandle,
-        createdAt: admin.firestore.Timestamp.fromDate(new Date())
+        createdAt: new Date().toISOString()
     };
 
     admin
@@ -60,3 +60,5 @@ exports.createScream = functions.https.onRequest((req, res) => {
             console.error(err);
         });
 });
+
+exports.api = functions.https.onRequest(app);
